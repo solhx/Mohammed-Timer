@@ -1,93 +1,99 @@
-// components/timer/LiveClock.tsx - ENHANCED DESIGN
+// components/timer/LiveClock.tsx - NORMAL SIZE
 'use client';
 
-import { useState, useEffect, memo } from 'react';
-import { motion } from 'framer-motion';
+import { memo, useState, useEffect } from 'react';
+import { Clock } from 'lucide-react';
+import { useSettingsContext } from '@/context/SettingsContext';
 import { cn } from '@/lib/utils';
 
 interface LiveClockProps {
-  format?: 12 | 24;
-  showSeconds?: boolean;
-  showDate?: boolean;
   className?: string;
+  showIcon?: boolean;
+  showSeconds?: boolean;
+  size?: 'sm' | 'md' | 'lg';
 }
 
 export const LiveClock = memo(function LiveClock({
-  format = 12,
-  showSeconds = true,
-  showDate = false,
   className,
+  showIcon = true,
+  showSeconds = true,
+  size = 'md',
 }: LiveClockProps) {
   const [time, setTime] = useState<Date | null>(null);
+  const { settings } = useSettingsContext();
+  const use24Hour = settings.timer.use24HourFormat;
 
   useEffect(() => {
     setTime(new Date());
-    const interval = setInterval(() => setTime(new Date()), 1000);
+
+    const interval = setInterval(() => {
+      setTime(new Date());
+    }, 1000);
+
     return () => clearInterval(interval);
   }, []);
 
-  if (!time) return null;
+  if (!time) {
+    return (
+      <div className={cn('flex items-center gap-2 text-muted-foreground', className)}>
+        {showIcon && <Clock size={size === 'lg' ? 16 : size === 'md' ? 14 : 12} />}
+        <span className="font-mono">--:--</span>
+      </div>
+    );
+  }
 
-  const hours = time.getHours();
-  const minutes = time.getMinutes();
-  const seconds = time.getSeconds();
+  const formatTime = () => {
+    let hours = time.getHours();
+    const minutes = time.getMinutes();
+    const seconds = time.getSeconds();
+    let period = '';
 
-  const displayHours = format === 12 ? hours % 12 || 12 : hours;
-  const ampm = hours >= 12 ? 'PM' : 'AM';
+    if (!use24Hour) {
+      period = hours >= 12 ? ' PM' : ' AM';
+      hours = hours % 12 || 12;
+    }
 
-  const formatNumber = (n: number) => n.toString().padStart(2, '0');
+    const timeStr = [
+      hours.toString().padStart(2, '0'),
+      minutes.toString().padStart(2, '0'),
+      ...(showSeconds ? [seconds.toString().padStart(2, '0')] : []),
+    ].join(' : ');
 
-  const dateStr = time.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
+    return { timeStr, period };
+  };
+
+  const { timeStr, period } = formatTime();
+
+  const sizeClasses = {
+    sm: 'text-xs',
+    md: 'text-sm',
+    lg: 'text-base',
+  };
+
+  const iconSizes = {
+    sm: 12,
+    md: 14,
+    lg: 16,
+  };
 
   return (
-    <div className={cn('flex flex-col items-center', className)}>
-      {/* Date */}
-      {showDate && (
-        <motion.div
-          initial={{ opacity: 0, y: -5 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-xs text-muted-foreground mb-1"
-        >
-          {dateStr}
-        </motion.div>
+    <div
+      className={cn(
+        'flex items-center gap-2 text-muted-foreground',
+        sizeClasses[size],
+        className
       )}
-
-      {/* Time */}
-      <div className="flex items-baseline gap-1 font-mono">
-        <span className="text-sm font-medium text-muted-foreground">
-          {formatNumber(displayHours)}
+    >
+      {showIcon && (
+        <Clock size={iconSizes[size]} className="opacity-60" />
+      )}
+      <div className="flex items-baseline gap-1">
+        <span className="font-mono font-medium tabular-nums tracking-wide">
+          {timeStr}
         </span>
-        <motion.span
-          className="text-sm text-muted-foreground/50"
-          animate={{ opacity: [1, 0.3, 1] }}
-          transition={{ duration: 1, repeat: Infinity }}
-        >
-          :
-        </motion.span>
-        <span className="text-sm font-medium text-muted-foreground">
-          {formatNumber(minutes)}
-        </span>
-        {showSeconds && (
-          <>
-            <motion.span
-              className="text-sm text-muted-foreground/50"
-              animate={{ opacity: [1, 0.3, 1] }}
-              transition={{ duration: 1, repeat: Infinity }}
-            >
-              :
-            </motion.span>
-            <span className="text-sm font-medium text-muted-foreground">
-              {formatNumber(seconds)}
-            </span>
-          </>
-        )}
-        {format === 12 && (
-          <span className="text-[10px] font-semibold text-muted-foreground/70 ml-1">
-            {ampm}
+        {period && (
+          <span className="text-[0.8em] text-muted-foreground/70">
+            {period.trim()}
           </span>
         )}
       </div>

@@ -52,7 +52,7 @@ const Section = memo(function Section({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="border border-border rounded-xl overflow-hidden">
+    <div className="border border-border rounded-xl">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
@@ -78,7 +78,8 @@ const Section = memo(function Section({
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeInOut' }}
-            className="overflow-hidden"
+            // ✅ FIXED: Remove overflow-hidden, add overflow-visible when open
+            style={{ overflow: 'visible' }}
           >
             <div className="p-4 space-y-5">{children}</div>
           </motion.div>

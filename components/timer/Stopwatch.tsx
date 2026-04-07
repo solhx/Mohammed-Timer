@@ -1,7 +1,7 @@
-// components/timer/Stopwatch.tsx - FIXED VERSION WITH SETTINGS INTEGRATION
+// components/timer/Stopwatch.tsx - DYNAMIC CIRCLE SIZE
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play,
@@ -13,6 +13,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { TimerDisplay } from './TimerDisplay';
+import { LiveClock } from './LiveClock';
 import { SessionNameInput } from './SessionNameInput';
 import { LapList } from './LapList';
 import { Modal } from '@/components/ui/Modal';
@@ -38,11 +39,13 @@ const CircularProgress = ({
   size = 280,
   strokeWidth = 6,
   isRunning,
+  isBreak = false,
 }: {
   progress: number;
   size?: number;
   strokeWidth?: number;
   isRunning: boolean;
+  isBreak?: boolean;
 }) => {
   const radius = (size - strokeWidth * 2) / 2;
   const circumference = radius * 2 * Math.PI;
@@ -56,6 +59,7 @@ const CircularProgress = ({
       className="absolute top-0 left-0"
       style={{ transform: 'rotate(-90deg)' }}
     >
+      {/* Background circle */}
       <circle
         cx={center}
         cy={center}
@@ -64,12 +68,14 @@ const CircularProgress = ({
         className="stroke-border/30 dark:stroke-border/20"
         strokeWidth={strokeWidth}
       />
+      
+      {/* Progress circle */}
       <motion.circle
         cx={center}
         cy={center}
         r={radius}
         fill="none"
-        stroke="url(#progressGradient)"
+        stroke={isBreak ? "url(#breakGradient)" : "url(#progressGradient)"}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeDasharray={circumference}
@@ -78,20 +84,27 @@ const CircularProgress = ({
         animate={{ strokeDashoffset: offset }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
       />
+      
       <defs>
         <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="rgb(var(--color-primary-500))" />
           <stop offset="100%" stopColor="rgb(var(--color-accent-500))" />
         </linearGradient>
+        <linearGradient id="breakGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#f59e0b" />
+          <stop offset="100%" stopColor="#22c55e" />
+        </linearGradient>
       </defs>
+      
+      {/* Glow effect when running */}
       {isRunning && (
         <motion.circle
           cx={center}
           cy={center}
           r={radius}
           fill="none"
-          stroke="rgb(var(--color-primary-500))"
-          strokeWidth={strokeWidth * 3}
+          stroke={isBreak ? "#f59e0b" : "rgb(var(--color-primary-500))"}
+          strokeWidth={strokeWidth * 2.5}
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
@@ -192,7 +205,6 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   
-  // ✅ FIXED: Get settings from SettingsContext
   const { settings } = useSettingsContext();
   const timerSettings = settings.timer;
   const notificationSettings = settings.notifications;
@@ -200,13 +212,11 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
   const { theme } = useThemeContext();
   const { notifySessionEnd, requestPermission, notify } = useNotifications();
   
-  // Auto-save interval ref
   const autoSaveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastMilestoneRef = useRef<number>(0);
 
   const timer = useSessionTimer({
     onSessionSaved: (session) => {
-      // Play completion sound
       if (timerSettings.soundEnabled && timerSettings.soundOnComplete) {
         soundManager.playSuccess();
       }
@@ -218,19 +228,27 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
     },
   });
 
-  // ✅ Configure sound manager when settings change
+  // ✅ DYNAMIC CIRCLE SIZE - grows when hours are displayed
+  const hasHours = useMemo(() => {
+    return Math.floor(timer.elapsedTime / 3600000) > 0;
+  }, [timer.elapsedTime]);
+
+  // Circle size: normal = 300, with hours = 380
+  const circleSize = hasHours ? 380 : 300;
+  const strokeWidth = hasHours ? 8 : 6;
+
+  // Configure sound manager when settings change
   useEffect(() => {
     soundManager.setVolume(timerSettings.soundVolume);
     soundManager.setEnabled(timerSettings.soundEnabled);
   }, [timerSettings.soundVolume, timerSettings.soundEnabled]);
 
-  // ✅ Auto-save functionality
+  // Auto-save functionality
   useEffect(() => {
     if (timerSettings.autoSaveEnabled && timer.isRunning && !timer.isPaused) {
       const intervalMs = timerSettings.autoSaveInterval * 60 * 1000;
       
       autoSaveIntervalRef.current = setInterval(() => {
-        // Auto-save logic - could save to localStorage as backup
         console.log('Auto-saving session backup...');
         try {
           localStorage.setItem('timeflow_autosave', JSON.stringify({
@@ -252,7 +270,7 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
     };
   }, [timerSettings.autoSaveEnabled, timerSettings.autoSaveInterval, timer.isRunning, timer.isPaused, timer.sessionName, timer.elapsedTime, timer.laps]);
 
-  // ✅ Break reminder notifications
+  // Break reminder notifications
   useEffect(() => {
     if (!notificationSettings.enabled || !notificationSettings.breakReminders) return;
     if (!timer.isRunning || timer.isPaused || isBreak) return;
@@ -277,7 +295,7 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
     notify,
   ]);
 
-  // ✅ Milestone alerts
+  // Milestone alerts
   useEffect(() => {
     if (!notificationSettings.enabled || !notificationSettings.milestoneAlerts) return;
     if (!timer.isRunning || timer.isPaused) return;
@@ -331,13 +349,12 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
     };
   }, [isBreak, timer.isRunning, timer.isPaused]);
 
-  // ✅ Handlers with sound effects
+  // Handlers with sound effects
   const handleStart = useCallback(() => {
     const sessionName = timer.sessionName || timerSettings.defaultSessionName || 'Work Session';
     timer.startSession(sessionName);
     requestPermission();
     
-    // Play start sound
     if (timerSettings.soundEnabled && timerSettings.soundOnStart) {
       soundManager.playStart(timerSettings.soundType);
     }
@@ -346,7 +363,6 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
   const handlePause = useCallback(() => {
     timer.pause();
     
-    // Play pause sound
     if (timerSettings.soundEnabled && timerSettings.soundOnPause) {
       soundManager.playPause(timerSettings.soundType);
     }
@@ -355,7 +371,6 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
   const handleResume = useCallback(() => {
     timer.resume();
     
-    // Play resume sound (same as start)
     if (timerSettings.soundEnabled && timerSettings.soundOnStart) {
       soundManager.playStart(timerSettings.soundType);
     }
@@ -364,7 +379,6 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
   const handleLap = useCallback(() => {
     timer.lap();
     
-    // Play lap sound
     if (timerSettings.soundEnabled && timerSettings.soundOnLap) {
       soundManager.playLap(timerSettings.soundType);
     }
@@ -373,7 +387,7 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
   const handleBreakToggle = useCallback(() => {
     if (!timer.isRunning) return;
     if (isBreak) {
-      handleLap(); // Record break as a lap
+      handleLap();
     }
     setIsBreak((v) => !v);
   }, [isBreak, timer.isRunning, handleLap]);
@@ -389,7 +403,6 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
     setIsBreak(false);
     setBreakTime(0);
     
-    // Clear auto-save backup
     try {
       localStorage.removeItem('timeflow_autosave');
     } catch (e) {
@@ -405,7 +418,6 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
     setBreakTime(0);
     lastMilestoneRef.current = 0;
     
-    // Clear auto-save backup
     try {
       localStorage.removeItem('timeflow_autosave');
     } catch (e) {
@@ -444,7 +456,6 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
   // Calculate progress (loops every minute)
   const progressPercent = ((timer.elapsedTime % 60000) / 60000) * 100;
 
-  const circleSize = 300;
   const reducedMotion = settings.accessibility.reducedMotion;
 
   return (
@@ -502,7 +513,7 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
               className={cn(
                 'absolute inset-0 opacity-10',
                 isBreak
-                  ? 'bg-gradient-to-br from-warning to-orange-500'
+                  ? 'bg-gradient-to-br from-warning to-green-600'
                   : 'bg-gradient-to-br from-primary-500 to-accent-500'
               )}
               animate={{ opacity: [0.05, 0.15, 0.05] }}
@@ -510,9 +521,9 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
             />
           )}
 
-          <div className="relative p-6 lg:p-10">
+          <div className="relative p-6 lg:p-8">
             {/* Session name input */}
-            <div className="mb-6">
+            <div className="mb-4">
               <SessionNameInput
                 value={timer.sessionName}
                 onChange={timer.setSessionName}
@@ -521,20 +532,40 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
               />
             </div>
 
+            {/* Live Clock - OUTSIDE the circle */}
+            <div className="flex justify-center mb-6">
+              <motion.div 
+                className="px-4 py-2 rounded-xl bg-muted/50 border border-border/50"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <LiveClock size="lg" showIcon={true} showSeconds={true} />
+              </motion.div>
+            </div>
+
             {/* Timer display with circular progress */}
-            <div className="flex items-center justify-center py-6">
-              <div 
+            {/* ✅ Container animates when size changes */}
+            <motion.div 
+              className="flex items-center justify-center py-4"
+              animate={{ 
+                height: circleSize + 20,
+              }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+            >
+              <motion.div 
                 className="relative"
-                style={{ 
+                animate={{ 
                   width: circleSize, 
-                  height: circleSize 
+                  height: circleSize,
                 }}
+                transition={{ duration: 0.3, ease: 'easeInOut' }}
               >
                 <CircularProgress
                   progress={progressPercent}
                   size={circleSize}
-                  strokeWidth={6}
+                  strokeWidth={strokeWidth}
                   isRunning={timer.isRunning && !timer.isPaused}
+                  isBreak={isBreak}
                 />
 
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -543,11 +574,12 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
                     isRunning={timer.isRunning}
                     isPaused={timer.isPaused}
                     isBreak={isBreak}
-                    size="lg"
+                    size={hasHours ? 'lg' : 'md'}
+                    showStatus={true}
                   />
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
 
             {/* Break time indicator */}
             <AnimatePresence>
@@ -587,8 +619,9 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
                   'transition-all duration-200',
                   'focus:outline-none focus:ring-4 focus:ring-offset-2',
                   timer.isRunning && !timer.isPaused
-                    ? 'bg-gradient-to-br from-red-500 to-orange-500 focus:ring-red-500/50 shadow-lg shadow-red-500/30'
-                    : 'bg-gradient-to-br from-primary-500 to-accent-500 focus:ring-primary-500/50 shadow-lg shadow-primary-500/30'
+                  ? 'bg-gradient-to-br from-primary-600 to-primary-700 focus:ring-primary-500/50 shadow-lg shadow-primary-500/30'
+      // Play button stays primary gradient
+      : 'bg-gradient-to-br from-primary-500 to-accent-500 focus:ring-primary-500/50 shadow-lg shadow-primary-500/30'
                 )}
                 style={{ width: 72, height: 72 }}
                 whileHover={reducedMotion ? {} : { scale: 1.05 }}
@@ -650,7 +683,7 @@ export function Stopwatch({ onSessionSaved }: StopwatchProps) {
               )}
             </AnimatePresence>
 
-            {/* Keyboard hints - controlled by accessibility settings */}
+            {/* Keyboard hints */}
             {settings.accessibility.keyboardNavigationHints && (
               <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
