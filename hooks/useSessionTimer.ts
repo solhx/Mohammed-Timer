@@ -1,7 +1,8 @@
+// hooks/useSessionTimer.ts - FIXED
 import { useCallback, useState } from 'react';
 import type { Session, Lap } from '@/types';
 import { generateId } from '@/lib/utils';
-import { addSession } from '@/lib/storage';
+// ❌ REMOVE: import { addSession } from '@/lib/storage';
 import { useStopwatch } from './useStopwatch';
 
 interface UseSessionTimerOptions {
@@ -15,7 +16,7 @@ export function useSessionTimer(options: UseSessionTimerOptions = {}) {
   const [isSaving, setIsSaving] = useState(false);
 
   const stopwatch = useStopwatch({
-    onTick: undefined, // Can add progress tracking here
+    onTick: undefined,
   });
 
   const startSession = useCallback((name?: string) => {
@@ -45,7 +46,10 @@ export function useSessionTimer(options: UseSessionTimerOptions = {}) {
     };
 
     try {
-      await addSession(session);
+      // ✅ FIXED: Don't save to storage here, let the callback handle it
+      // The onSessionSaved callback in page.tsx calls addSession from context
+      // which handles the actual storage
+      
       onSessionSaved?.(session);
       stopwatch.reset();
       setCurrentSessionId(null);
