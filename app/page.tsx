@@ -1,7 +1,7 @@
-// app/page.tsx - COMPLETE UI REDESIGN
+// app/page.tsx - FIXED VERSION
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Timer,
@@ -17,6 +17,8 @@ import {
   Clock,
   Target,
   Zap,
+  TrendingUp,
+  Flame,
 } from 'lucide-react';
 import { Stopwatch } from '@/components/timer/Stopwatch';
 import { Dashboard } from '@/components/dashboard/Dashboard';
@@ -27,6 +29,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { AnimatedBackground } from '@/components/ui/AnimatedBackground';
 import { useSessionContext } from '@/context/SessionContext';
 import { useThemeContext } from '@/context/ThemeContext';
+import { useSettingsContext } from '@/context/SettingsContext';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { cn } from '@/lib/utils';
 import type { Session } from '@/types';
@@ -57,15 +60,128 @@ const navItems = [
   },
 ] as const;
 
+// ✅ NEW: Goal Progress Component for Header
+const GoalProgress = ({ sessions, stats }: { sessions: Session[]; stats: any }) => {
+  const { settings } = useSettingsContext();
+  const goals = settings.goals;
+  
+  // Don't show if disabled
+  if (!goals.showProgressInHeader) return null;
+  
+  // Calculate today's time
+  const todayMs = useMemo(() => {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    return sessions
+      .filter(s => s.startTime >= startOfDay.getTime())
+      .reduce((acc, s) => acc + s.duration, 0);
+  }, [sessions]);
+  
+  const dailyGoalMs = goals.dailyTimeGoal * 60 * 1000;
+  const dailyProgress = dailyGoalMs > 0 
+    ? Math.min((todayMs / dailyGoalMs) * 100, 100) 
+    : 0;
+  
+  const weeklyGoalMs = goals.weeklyTimeGoal * 60 * 1000;
+  const weeklyProgress = weeklyGoalMs > 0 && stats?.thisWeek
+    ? Math.min((stats.thisWeek / weeklyGoalMs) * 100, 100)
+    : 0;
+  
+  // Only show if there's at least one goal set
+  if (goals.dailyTimeGoal === 0 && goals.weeklyTimeGoal === 0) return null;
+  
+  return (
+    <div className="hidden lg:flex items-center gap-4">
+      {/* Daily Progress */}
+      {goals.dailyTimeGoal > 0 && (
+        <Tooltip content={`Daily: ${Math.round(todayMs / 60000)}m / ${goals.dailyTimeGoal}m`}>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <Target size={14} className="text-primary-500" />
+              <span className="text-xs text-muted-foreground">Daily</span>
+            </div>
+            <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
+              <motion.div
+                className={cn(
+                  'h-full rounded-full',
+                  dailyProgress >= 100 
+                    ? 'bg-green-500' 
+                    : 'bg-gradient-to-r from-primary-500 to-accent-500'
+                )}
+                initial={{ width: 0 }}
+                animate={{ width: `${dailyProgress}%` }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
+              />
+            </div>
+            {dailyProgress >= 100 && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="text-green-500"
+              >
+                <Sparkles size={14} />
+              </motion.div>
+            )}
+          </div>
+        </Tooltip>
+      )}
+      
+      {/* Weekly Progress */}
+      {goals.weeklyTimeGoal > 0 && (
+        <Tooltip content={`Weekly: ${Math.round((stats?.thisWeek || 0) / 60000)}m / ${goals.weeklyTimeGoal}m`}>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <TrendingUp size={14} className="text-accent-500" />
+              <span className="text-xs text-muted-foreground">Weekly</span>
+            </div>
+            <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
+              <motion.div
+                className={cn(
+                  'h-full rounded-full',
+                  weeklyProgress >= 100 
+                    ? 'bg-green-500' 
+                    : 'bg-gradient-to-r from-accent-500 to-pink-500'
+                )}
+                initial={{ width: 0 }}
+                animate={{ width: `${weeklyProgress}%` }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
+              />
+            </div>
+            {weeklyProgress >= 100 && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="text-green-500"
+              >
+                <Sparkles size={14} />
+              </motion.div>
+            )}
+          </div>
+        </Tooltip>
+      )}
+      
+      {/* Streak */}
+      {goals.streakTracking && stats?.streak > 0 && (
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
+          <Flame size={14} className="text-orange-500" />
+          <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
+            {stats.streak} day{stats.streak !== 1 ? 's' : ''}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Quick stats for header
 const QuickStats = ({ sessions }: { sessions: Session[] }) => {
-  const todayTotal = sessions
-    .filter(s => {
-      const today = new Date();
-      const sessionDate = new Date(s.startTime);
-      return sessionDate.toDateString() === today.toDateString();
-    })
-    .reduce((acc, s) => acc + s.duration, 0);
+  const todayTotal = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return sessions
+      .filter(s => s.startTime >= today.getTime())
+      .reduce((acc, s) => acc + s.duration, 0);
+  }, [sessions]);
 
   const formatTime = (ms: number) => {
     const hours = Math.floor(ms / 3600000);
@@ -75,7 +191,7 @@ const QuickStats = ({ sessions }: { sessions: Session[] }) => {
   };
 
   return (
-    <div className="hidden md:flex items-center gap-6">
+    <div className="hidden md:flex items-center gap-4">
       <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-500/10 border border-primary-500/20">
         <Clock size={14} className="text-primary-500" />
         <span className="text-sm font-medium text-foreground">
@@ -100,11 +216,13 @@ export default function HomePage() {
   const [mounted, setMounted] = useState(false);
 
   const { theme } = useThemeContext();
+  const { settings } = useSettingsContext();
   const { isFullscreen, toggleFullscreen } = useFullscreen();
 
   const {
     sessions,
     isLoading,
+    stats,
     addSession,
     updateSession,
     deleteSession,
@@ -183,42 +301,6 @@ export default function HomePage() {
     [isMobile]
   );
 
-  // Content renderer
-  const renderContent = useCallback(() => {
-    switch (activeTab) {
-      case 'track':
-        return (
-          <div className="flex items-center justify-center min-h-[calc(100vh-12rem)]">
-            <Stopwatch onSessionSaved={handleSessionSaved} />
-          </div>
-        );
-      case 'dashboard':
-        return (
-          <Dashboard
-            sessions={sessions}
-            onDeleteSession={deleteSession}
-            onUpdateSession={updateSession}
-          />
-        );
-      case 'settings':
-        return (
-          <SettingsPage
-            sessions={sessions}
-            onDataCleared={handleDataCleared}
-            onDataImported={handleDataImported}
-          />
-        );
-    }
-  }, [
-    activeTab,
-    sessions,
-    handleSessionSaved,
-    handleDataCleared,
-    handleDataImported,
-    deleteSession,
-    updateSession,
-  ]);
-
   // Loading state
   if (!mounted) {
     return (
@@ -235,7 +317,7 @@ export default function HomePage() {
             <div className="absolute -inset-2 bg-gradient-to-br from-primary-500 to-accent-500 rounded-3xl blur-xl opacity-30 animate-pulse" />
           </div>
           <div className="flex flex-col items-center gap-2">
-<h1 className="text-2xl font-bold gradient-text">Mohammed's Tracker</h1>
+            <h1 className="text-2xl font-bold gradient-text">Mohammed's Tracker</h1>
             <p className="text-sm text-muted-foreground">Loading your workspace...</p>
           </div>
           <div className="flex gap-1">
@@ -326,8 +408,16 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Center - Quick Stats */}
-          <QuickStats sessions={sessions} />
+          {/* Center - Goal Progress (NEW!) + Quick Stats */}
+          <div className="flex items-center gap-6">
+            {/* ✅ NEW: Goal Progress in Header */}
+            <GoalProgress sessions={sessions} stats={stats} />
+            
+            {/* Quick Stats (only show if goal progress is hidden) */}
+            {!settings.goals.showProgressInHeader && (
+              <QuickStats sessions={sessions} />
+            )}
+          </div>
 
           {/* Right */}
           <div className="flex items-center gap-2">
@@ -381,9 +471,7 @@ export default function HomePage() {
           'bg-card/80 backdrop-blur-xl',
           'border-r border-border/50',
           'transition-all duration-300 ease-out',
-          // Mobile
           isMobile && (isSidebarOpen ? 'translate-x-0 w-72' : '-translate-x-full w-72'),
-          // Desktop
           !isMobile && 'translate-x-0',
           !isMobile && sidebarWidth
         )}
@@ -398,7 +486,6 @@ export default function HomePage() {
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center shadow-lg">
                 <Timer size={22} className="text-white" />
               </div>
-              {/* Glow effect */}
               <div className="absolute -inset-1 bg-gradient-to-br from-primary-500 to-accent-500 rounded-xl blur-lg opacity-40 -z-10" />
             </div>
             {(!isSidebarCollapsed || isMobile) && (
@@ -406,15 +493,14 @@ export default function HomePage() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
               >
-<h1 className="text-x font-bold gradient-text">Mohammed's Tracker</h1>
-  <p className="text-[10px] text-muted-foreground -mt-0.5">
+                <h1 className="text-x font-bold gradient-text">Mohammed's Tracker</h1>
+                <p className="text-[10px] text-muted-foreground -mt-0.5">
                   Personal Session Tracker by Hossam Hassan
                 </p>
               </motion.div>
             )}
           </motion.div>
 
-          {/* Collapse button (desktop) */}
           {!isMobile && (
             <Button
               variant="ghost"
@@ -433,7 +519,6 @@ export default function HomePage() {
 
         {/* Navigation */}
         <nav className="flex-1 p-3 space-y-2 overflow-y-auto custom-scrollbar">
-          {/* Section label */}
           {(!isSidebarCollapsed || isMobile) && (
             <p className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Navigation
@@ -466,7 +551,6 @@ export default function HomePage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
                 >
-                  {/* Active indicator glow */}
                   {isActive && (
                     <motion.div
                       className="absolute inset-0 bg-white/20"
@@ -507,7 +591,6 @@ export default function HomePage() {
                     </div>
                   )}
 
-                  {/* Keyboard shortcut hint */}
                   {(!isSidebarCollapsed || isMobile) && (
                     <span
                       className={cn(
@@ -528,7 +611,6 @@ export default function HomePage() {
 
         {/* Sidebar footer */}
         <div className="p-3 border-t border-border/50">
-          {/* Quick actions */}
           {(!isSidebarCollapsed || isMobile) && (
             <div className="mb-3 p-3 rounded-xl bg-gradient-to-br from-primary-500/10 to-accent-500/10 border border-primary-500/20">
               <div className="flex items-center gap-2 mb-2">
@@ -542,18 +624,17 @@ export default function HomePage() {
                 variant="primary"
                 size="sm"
                 className="w-full"
-onClick={() => setActiveTab('track')}
+                onClick={() => setActiveTab('track')}
               >
                 Start Session
               </Button>
             </div>
           )}
 
-          {/* Version */}
           <div className="flex items-center justify-between px-2">
             {(!isSidebarCollapsed || isMobile) ? (
               <>
-<span className="text-xs text-muted-foreground">Mohammed's Tracker</span>
+                <span className="text-xs text-muted-foreground">Mohammed's Tracker</span>
                 <span className="text-xs font-semibold text-primary-500">v2.0</span>
               </>
             ) : (
@@ -575,28 +656,69 @@ onClick={() => setActiveTab('track')}
         )}
       >
         <div className="p-4 lg:p-8">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            >
-              {isLoading ? (
-                <div className="flex items-center justify-center h-[60vh]">
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="relative">
-                      <div className="w-12 h-12 rounded-full border-2 border-primary-500/30 border-t-primary-500 animate-spin" />
-                    </div>
-                    <p className="text-sm text-muted-foreground">Loading...</p>
-                  </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center h-[60vh]">
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative">
+                  <div className="w-12 h-12 rounded-full border-2 border-primary-500/30 border-t-primary-500 animate-spin" />
                 </div>
-              ) : (
-                renderContent()
-              )}
-            </motion.div>
-          </AnimatePresence>
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* ✅ FIX: Keep Stopwatch ALWAYS mounted to preserve timer state */}
+              <div style={{ display: activeTab === 'track' ? 'block' : 'none' }}>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="flex items-center justify-center min-h-[calc(100vh-12rem)]">
+                    <Stopwatch onSessionSaved={handleSessionSaved} />
+                  </div>
+                </motion.div>
+              </div>
+
+              {/* Dashboard - only render when active */}
+              <AnimatePresence mode="wait">
+                {activeTab === 'dashboard' && (
+                  <motion.div
+                    key="dashboard"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <Dashboard
+                      sessions={sessions}
+                      onDeleteSession={deleteSession}
+                      onUpdateSession={updateSession}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Settings - only render when active */}
+              <AnimatePresence mode="wait">
+                {activeTab === 'settings' && (
+                  <motion.div
+                    key="settings"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <SettingsPage
+                      sessions={sessions}
+                      onDataCleared={handleDataCleared}
+                      onDataImported={handleDataImported}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
+          )}
         </div>
       </main>
 

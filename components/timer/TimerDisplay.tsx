@@ -1,9 +1,10 @@
-// components/timer/TimerDisplay.tsx - COMPLETE FIXED VERSION
+// components/timer/TimerDisplay.tsx - FIXED VERSION
 'use client';
 
 import { memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useThemeContext } from '@/context/ThemeContext';
+import { useSettingsContext } from '@/context/SettingsContext';
 import { LiveClock } from './LiveClock';
 import { cn } from '@/lib/utils';
 
@@ -38,11 +39,19 @@ export const TimerDisplay = memo(function TimerDisplay({
   isBreak = false,
   size = 'lg',
 }: TimerDisplayProps) {
+  // ✅ FIXED: Read user preferences from SettingsContext
+  const { settings } = useSettingsContext();
   const { theme } = useThemeContext();
-  const showMilliseconds = theme?.timer?.showMilliseconds ?? true;
+  
+  // User settings (from Settings → Timer page)
+  const showMilliseconds = settings.timer.showMilliseconds;
+  
+  // Theme settings (visual styling from Theme Customizer)
   const pulseWhenRunning = theme?.timer?.pulseWhenRunning ?? true;
   const displayStyle = theme?.timer?.displayStyle ?? 'default';
-  const reducedMotion = theme?.effects?.reducedMotion ?? false;
+  
+  // Accessibility settings
+  const reducedMotion = settings.accessibility.reducedMotion || theme?.effects?.reducedMotion;
 
   const { hours, minutes, seconds, milliseconds, showHours } = useMemo(
     () => formatTimeDisplay(time),
@@ -59,7 +68,7 @@ export const TimerDisplay = memo(function TimerDisplay({
 
   const { fontSize } = sizeConfig[size];
 
-  const shouldAnimate = isRunning && !isPaused && !reducedMotion;
+  const shouldAnimate = isRunning && !isPaused && !reducedMotion && pulseWhenRunning;
 
   // Color based on state
   const textColorClass = isBreak
@@ -83,11 +92,25 @@ export const TimerDisplay = memo(function TimerDisplay({
       : 'Running'
     : 'Ready';
 
+  // Screen reader announcement
+  const screenReaderText = useMemo(() => {
+    const h = parseInt(hours);
+    const m = parseInt(minutes);
+    const s = parseInt(seconds);
+    
+    let text = '';
+    if (h > 0) text += `${h} hour${h !== 1 ? 's' : ''} `;
+    if (m > 0) text += `${m} minute${m !== 1 ? 's' : ''} `;
+    text += `${s} second${s !== 1 ? 's' : ''}`;
+    
+    return text;
+  }, [hours, minutes, seconds]);
+
   return (
     <div className="flex flex-col items-center justify-center">
       {/* Live Clock */}
       <LiveClock
-        format={12}
+        format={settings.timer.use24HourFormat ? 24 : 12}
         showSeconds
         className="text-sm text-muted-foreground mb-2"
       />
@@ -106,16 +129,26 @@ export const TimerDisplay = memo(function TimerDisplay({
         )}
       </AnimatePresence>
 
+      {/* Screen reader announcement */}
+      {settings.accessibility.screenReaderAnnouncements && (
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          {statusText}: {screenReaderText}
+        </div>
+      )}
+
       {/* TIMER DIGITS - ALL ON ONE LINE */}
       <div
         className={cn(
           'font-mono font-bold tabular-nums tracking-tight',
           'flex items-baseline justify-center',
-          'whitespace-nowrap', // IMPORTANT: Prevents wrapping
+          'whitespace-nowrap',
+          'themed-timer', // For theme styling (neon, gradient, etc.)
           fontSize,
           textColorClass,
           isPaused && 'opacity-60'
         )}
+        role="timer"
+        aria-label={screenReaderText}
       >
         {/* Hours (if any) */}
         {showHours && (
@@ -140,7 +173,7 @@ export const TimerDisplay = memo(function TimerDisplay({
         {/* Seconds */}
         <span>{seconds}</span>
 
-        {/* Milliseconds */}
+        {/* Milliseconds - controlled by settings */}
         {showMilliseconds && (
           <span className="text-[0.4em] opacity-50 ml-1 self-end mb-1">
             .{milliseconds}

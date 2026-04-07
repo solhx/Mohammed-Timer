@@ -64,6 +64,13 @@ export async function saveSessions(sessions: Session[]): Promise<void> {
 
 export async function addSession(session: Session): Promise<void> {
   const sessions = await getSessions();
+  
+  // Check for duplicate ID (defense in depth)
+  if (sessions.some(s => s.id === session.id)) {
+    console.warn(`Duplicate session ID detected: ${session.id}. Regenerating.`);
+    session.id = crypto.randomUUID() as any;
+  }
+  
   sessions.push(session);
   await saveSessions(sessions);
 }

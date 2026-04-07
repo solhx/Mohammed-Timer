@@ -1,4 +1,4 @@
-// components/dashboard/Dashboard.tsx - FIXED VERSION
+// components/dashboard/Dashboard.tsx - FIXED VERSION WITH SETTINGS INTEGRATION
 'use client';
 
 import { useState, useMemo, memo } from 'react';
@@ -14,6 +14,7 @@ import {
   Timer,
   Zap,
   ChevronRight,
+  CheckCircle2,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +22,7 @@ import { StatCard } from './StatCard';
 import { SessionHistory } from './SessionHistory';
 import { DailyActivityChart } from '@/components/charts/DailyActivityChart';
 import { WeeklyChart } from '@/components/charts/WeeklyChart';
+import { useSettingsContext } from '@/context/SettingsContext';
 import { formatDuration } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import type { Session } from '@/types';
@@ -33,6 +35,60 @@ interface DashboardProps {
 
 type TimeRange = 'today' | 'week' | 'month' | 'all';
 
+// ✅ Goal Progress Component
+const GoalProgress = memo(function GoalProgress({
+  label,
+  current,
+  goal,
+  unit,
+  color = 'primary',
+}: {
+  label: string;
+  current: number;
+  goal: number;
+  unit: string;
+  color?: 'primary' | 'accent' | 'success';
+}) {
+  if (goal <= 0) return null;
+  
+  const progress = Math.min((current / goal) * 100, 100);
+  const isComplete = progress >= 100;
+  
+  const colorClasses = {
+    primary: 'from-primary-500 to-primary-600',
+    accent: 'from-accent-500 to-accent-600',
+    success: 'from-green-500 to-emerald-500',
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground flex items-center gap-1">
+          {isComplete && <CheckCircle2 size={14} className="text-green-500" />}
+          {label}
+        </span>
+        <span className={cn('font-medium', isComplete ? 'text-green-500' : 'text-foreground')}>
+          {unit === 'time' ? formatDuration(current) : current} / {unit === 'time' ? formatDuration(goal) : goal}
+        </span>
+      </div>
+      <div className="h-2 rounded-full bg-muted overflow-hidden">
+        <motion.div
+          className={cn(
+            'h-full rounded-full bg-gradient-to-r',
+            isComplete ? 'from-green-500 to-emerald-500' : colorClasses[color]
+          )}
+          initial={{ width: 0 }}
+          animate={{ width: `${progress}%` }}
+          transition={{ duration: 1, ease: 'easeOut' }}
+        />
+      </div>
+      {isComplete && (
+        <p className="text-xs text-green-500 font-medium">🎉 Goal achieved!</p>
+      )}
+    </div>
+  );
+});
+
 export const Dashboard = memo(function Dashboard({
   sessions,
   onDeleteSession,
@@ -40,6 +96,10 @@ export const Dashboard = memo(function Dashboard({
 }: DashboardProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
   const [activeChart, setActiveChart] = useState<'daily' | 'weekly'>('daily');
+
+  // ✅ FIXED: Get goals from SettingsContext
+  const { settings } = useSettingsContext();
+  const goalSettings = settings.goals;
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -133,6 +193,12 @@ export const Dashboard = memo(function Dashboard({
     { id: 'all', label: 'All Time' },
   ];
 
+  // Check if any goals are set
+  const hasGoals = goalSettings.dailyTimeGoal > 0 || 
+                   goalSettings.weeklyTimeGoal > 0 ||
+                   goalSettings.dailySessionGoal > 0 ||
+                   goalSettings.weeklySessionGoal > 0;
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -189,7 +255,7 @@ export const Dashboard = memo(function Dashboard({
         <StatCard
           title="Current Streak"
           value={`${stats.streak} day${stats.streak !== 1 ? 's' : ''}`}
-          subtitle="Keep it going!"
+          subtitle={goalSettings.streakTracking ? "Keep it going!" : "Streak tracking enabled"}
           icon={<Flame size={24} />}
           color={stats.streak >= 7 ? 'success' : 'warning'}
           index={2}
@@ -203,6 +269,80 @@ export const Dashboard = memo(function Dashboard({
           index={3}
         />
       </div>
+
+      {/* ✅ Goals Progress Section - Only show if enabled in settings */}
+      {goalSettings.showProgressInDashboard && hasGoals && (
+        <Card variant="gradient" padding="md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target size={20} className="text-primary-500" />
+              Goal Progress
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-6 sm:grid-cols-2">
+              {/* Daily Time Goal */}
+              {goalSettings.dailyTimeGoal > 0 && (
+                <GoalProgress
+                  label="Daily Time Goal"
+                  current={stats.today}
+                  goal={goalSettings.dailyTimeGoal * 60 * 1000} // Convert minutes to ms
+                  unit="time"
+                  color="primary"
+                />
+              )}
+              
+              {/* Weekly Time Goal */}
+              {goalSettings.weeklyTimeGoal > 0 && (
+                <GoalProgress
+                  label="Weekly Time Goal"
+                  current={stats.week}
+                  goal={goalSettings.weeklyTimeGoal * 60 * 1000}
+                  unit="time"
+                  color="accent"
+                />
+              )}
+              
+              {/* Daily Session Goal */}
+              {goalSettings.dailySessionGoal > 0 && (
+                <GoalProgress
+                  label="Daily Sessions"
+                  current={stats.todaySessions}
+                  goal={goalSettings.dailySessionGoal}
+                  unit="sessions"
+                  color="primary"
+                />
+              )}
+              
+              {/* Weekly Session Goal */}
+              {goalSettings.weeklySessionGoal > 0 && (
+                <GoalProgress
+                  label="Weekly Sessions"
+                  current={stats.weekSessions}
+                  goal={goalSettings.weeklySessionGoal}
+                  unit="sessions"
+                  color="accent"
+                />
+              )}
+            </div>
+            
+            {/* Streak indicator */}
+            {goalSettings.streakTracking && stats.streak > 0 && (
+              <div className="mt-4 pt-4 border-t border-border/50 flex items-center gap-2">
+                <Flame size={20} className="text-orange-500" />
+                <span className="font-medium text-foreground">
+                  {stats.streak} day streak!
+                </span>
+                {stats.streak >= 7 && (
+                  <span className="px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-500 text-xs font-medium">
+                    🔥 On fire!
+                  </span>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Charts section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -278,41 +418,6 @@ export const Dashboard = memo(function Dashboard({
                   </span>
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Goals progress */}
-          <Card variant="bordered" padding="md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Target size={18} className="text-primary-500" />
-                Daily Goal
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Progress</span>
-                  <span className="font-medium text-foreground">
-                    {formatDuration(stats.today)} / 4h
-                  </span>
-                </div>
-                <div className="h-2 rounded-full bg-muted overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full bg-gradient-to-r from-primary-500 to-accent-500"
-                    initial={{ width: 0 }}
-                    animate={{
-                      width: `${Math.min((stats.today / (4 * 3600000)) * 100, 100)}%`,
-                    }}
-                    transition={{ duration: 1, ease: 'easeOut' }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {stats.today >= 4 * 3600000
-                    ? '🎉 Goal achieved!'
-                    : `${formatDuration(4 * 3600000 - stats.today)} to go`}
-                </p>
-              </div>
             </CardContent>
           </Card>
 

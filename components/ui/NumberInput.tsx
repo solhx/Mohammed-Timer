@@ -1,7 +1,7 @@
-// components/ui/NumberInput.tsx - NEW FILE
+// components/ui/NumberInput.tsx - FIXED VERSION
 'use client';
 
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useRef } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -28,18 +28,33 @@ export const NumberInput = memo(function NumberInput({
   disabled = false,
   className,
 }: NumberInputProps) {
+  // ✅ Use ref to always have latest value
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
+  // ✅ FIXED: Use ref to get latest value, avoid stale closure
   const handleIncrement = useCallback(() => {
-    const newValue = Math.min(value + step, max);
+    const currentValue = valueRef.current;
+    const newValue = Math.min(currentValue + step, max);
     onChange(newValue);
-  }, [value, step, max, onChange]);
+  }, [step, max, onChange]);
 
   const handleDecrement = useCallback(() => {
-    const newValue = Math.max(value - step, min);
+    const currentValue = valueRef.current;
+    const newValue = Math.max(currentValue - step, min);
     onChange(newValue);
-  }, [value, step, min, onChange]);
+  }, [step, min, onChange]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = parseInt(e.target.value, 10);
+    const rawValue = e.target.value;
+    
+    // Allow empty input for easier editing
+    if (rawValue === '') {
+      onChange(min);
+      return;
+    }
+    
+    const newValue = parseInt(rawValue, 10);
     if (!isNaN(newValue)) {
       onChange(Math.min(Math.max(newValue, min), max));
     }
@@ -60,9 +75,10 @@ export const NumberInput = memo(function NumberInput({
           className={cn(
             'w-10 h-10 rounded-lg flex items-center justify-center',
             'bg-muted hover:bg-muted/80 transition-colors',
-            'text-foreground disabled:opacity-50 disabled:cursor-not-allowed'
+            'text-foreground disabled:opacity-50 disabled:cursor-not-allowed',
+            'focus:outline-none focus:ring-2 focus:ring-primary-500'
           )}
-          aria-label="Decrease"
+          aria-label="Decrease value"
         >
           <Minus size={16} />
         </button>
@@ -83,11 +99,12 @@ export const NumberInput = memo(function NumberInput({
               '[appearance:textfield]',
               '[&::-webkit-outer-spin-button]:appearance-none',
               '[&::-webkit-inner-spin-button]:appearance-none',
-              disabled && 'opacity-50 cursor-not-allowed'
+              disabled && 'opacity-50 cursor-not-allowed',
+              suffix && 'pr-12' // Add padding for suffix
             )}
           />
           {suffix && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
               {suffix}
             </span>
           )}
@@ -100,9 +117,10 @@ export const NumberInput = memo(function NumberInput({
           className={cn(
             'w-10 h-10 rounded-lg flex items-center justify-center',
             'bg-muted hover:bg-muted/80 transition-colors',
-            'text-foreground disabled:opacity-50 disabled:cursor-not-allowed'
+            'text-foreground disabled:opacity-50 disabled:cursor-not-allowed',
+            'focus:outline-none focus:ring-2 focus:ring-primary-500'
           )}
-          aria-label="Increase"
+          aria-label="Increase value"
         >
           <Plus size={16} />
         </button>

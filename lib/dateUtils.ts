@@ -9,15 +9,19 @@ import {
   subDays,
   subWeeks,
   subMonths,
-  differenceInDays,
+  getDay,
 } from 'date-fns';
+
+// ============================================
+// Date Checkers
+// ============================================
 
 export function isToday(timestamp: number): boolean {
   return fnsIsToday(new Date(timestamp));
 }
 
 export function isThisWeek(timestamp: number): boolean {
-  return fnsIsThisWeek(new Date(timestamp), { weekStartsOn: 6 }); // Saturday
+  return fnsIsThisWeek(new Date(timestamp), { weekStartsOn: 1 });
 }
 
 export function isThisMonth(timestamp: number): boolean {
@@ -27,6 +31,10 @@ export function isThisMonth(timestamp: number): boolean {
 export function isThisYear(timestamp: number): boolean {
   return fnsIsThisYear(new Date(timestamp));
 }
+
+// ============================================
+// Date Generators
+// ============================================
 
 export function getLast7Days(): Date[] {
   const days: Date[] = [];
@@ -39,7 +47,8 @@ export function getLast7Days(): Date[] {
 export function getLast4Weeks(): Date[] {
   const weeks: Date[] = [];
   for (let i = 3; i >= 0; i--) {
-    weeks.push(startOfWeek(subWeeks(new Date(), i), { weekStartsOn: 6 }));
+    const weekStart = startOfWeek(subWeeks(new Date(), i), { weekStartsOn: 1 });
+    weeks.push(weekStart);
   }
   return weeks;
 }
@@ -52,26 +61,33 @@ export function getLast12Months(): Date[] {
   return months;
 }
 
+// ============================================
+// Formatters
+// ============================================
+
 export function formatDateShort(date: Date): string {
   return format(date, 'EEE');
 }
 
 export function formatWeekRange(weekStart: Date): string {
-  const weekEnd = subDays(weekStart, -6);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
   return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`;
 }
 
 export function getDayName(date: Date): string {
-  return format(date, 'EEEE');
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return days[getDay(date)];
 }
 
-export function getRelativeDay(timestamp: number): string {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffDays = differenceInDays(now, date);
+export function formatDate(date: Date, formatStr: string = 'PPP'): string {
+  return format(date, formatStr);
+}
 
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return format(date, 'EEEE');
-  return format(date, 'MMM d, yyyy');
+export function formatTime(date: Date): string {
+  return format(date, 'HH:mm');
+}
+
+export function formatDateTime(date: Date): string {
+  return format(date, 'PPP p');
 }

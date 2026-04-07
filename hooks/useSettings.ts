@@ -1,8 +1,15 @@
-// hooks/useSettings.ts - NEW FILE
+// hooks/useSettings.ts - FIXED VERSION
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { AppSettings, TimerSettings, NotificationSettings, GoalSettings, AccessibilitySettings, DataSettings } from '@/types/settings';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import type { 
+  AppSettings, 
+  TimerSettings, 
+  NotificationSettings, 
+  GoalSettings, 
+  AccessibilitySettings, 
+  DataSettings 
+} from '@/types/settings';
 import { DEFAULT_APP_SETTINGS } from '@/types/settings';
 import { deepMerge } from '@/lib/utils';
 
@@ -40,6 +47,10 @@ function saveSettings(settings: AppSettings): void {
 export function useSettings() {
   const [settings, setSettingsState] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [isLoaded, setIsLoaded] = useState(false);
+  
+  // ✅ Use ref to always have access to latest settings for accessibility
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
   // Load settings on mount
   useEffect(() => {
@@ -58,28 +69,16 @@ export function useSettings() {
     const root = document.documentElement;
     
     // Reduced motion
-    if (accessibility.reducedMotion) {
-      root.classList.add('reduce-motion');
-    } else {
-      root.classList.remove('reduce-motion');
-    }
+    root.classList.toggle('reduce-motion', accessibility.reducedMotion);
     
     // High contrast
-    if (accessibility.highContrast) {
-      root.classList.add('high-contrast');
-    } else {
-      root.classList.remove('high-contrast');
-    }
+    root.classList.toggle('high-contrast', accessibility.highContrast);
     
     // Large text
-    if (accessibility.largeText) {
-      root.classList.add('large-text');
-    } else {
-      root.classList.remove('large-text');
-    }
+    root.classList.toggle('large-text', accessibility.largeText);
   }, []);
 
-  // Update entire settings object
+  // ✅ FIXED: Use functional update to always get latest state
   const setSettings = useCallback((updates: Partial<AppSettings>) => {
     setSettingsState(prev => {
       const updated = deepMerge(prev, updates);
@@ -94,36 +93,82 @@ export function useSettings() {
     });
   }, [applyAccessibilitySettings]);
 
-  // Update specific sections
+  // ✅ FIXED: Section setters now use functional updates - NO stale closures!
   const setTimerSettings = useCallback((updates: Partial<TimerSettings>) => {
-    setSettings({ timer: { ...settings.timer, ...updates } });
-  }, [settings.timer, setSettings]);
+    setSettingsState(prev => {
+      const updated: AppSettings = {
+        ...prev,
+        timer: { ...prev.timer, ...updates },
+        lastUpdated: Date.now(),
+      };
+      saveSettings(updated);
+      return updated;
+    });
+  }, []); // ✅ No dependencies needed!
 
   const setNotificationSettings = useCallback((updates: Partial<NotificationSettings>) => {
-    setSettings({ notifications: { ...settings.notifications, ...updates } });
-  }, [settings.notifications, setSettings]);
+    setSettingsState(prev => {
+      const updated: AppSettings = {
+        ...prev,
+        notifications: { ...prev.notifications, ...updates },
+        lastUpdated: Date.now(),
+      };
+      saveSettings(updated);
+      return updated;
+    });
+  }, []);
 
   const setGoalSettings = useCallback((updates: Partial<GoalSettings>) => {
-    setSettings({ goals: { ...settings.goals, ...updates } });
-  }, [settings.goals, setSettings]);
+    setSettingsState(prev => {
+      const updated: AppSettings = {
+        ...prev,
+        goals: { ...prev.goals, ...updates },
+        lastUpdated: Date.now(),
+      };
+      saveSettings(updated);
+      return updated;
+    });
+  }, []);
 
   const setAccessibilitySettings = useCallback((updates: Partial<AccessibilitySettings>) => {
-    setSettings({ accessibility: { ...settings.accessibility, ...updates } });
-  }, [settings.accessibility, setSettings]);
+    setSettingsState(prev => {
+      const updatedAccessibility = { ...prev.accessibility, ...updates };
+      const updated: AppSettings = {
+        ...prev,
+        accessibility: updatedAccessibility,
+        lastUpdated: Date.now(),
+      };
+      saveSettings(updated);
+      applyAccessibilitySettings(updatedAccessibility);
+      return updated;
+    });
+  }, [applyAccessibilitySettings]);
 
   const setDataSettings = useCallback((updates: Partial<DataSettings>) => {
-    setSettings({ data: { ...settings.data, ...updates } });
-  }, [settings.data, setSettings]);
+    setSettingsState(prev => {
+      const updated: AppSettings = {
+        ...prev,
+        data: { ...prev.data, ...updates },
+        lastUpdated: Date.now(),
+      };
+      saveSettings(updated);
+      return updated;
+    });
+  }, []);
 
   // Reset to defaults
   const resetSettings = useCallback(() => {
-    setSettingsState(DEFAULT_APP_SETTINGS);
-    saveSettings(DEFAULT_APP_SETTINGS);
-    applyAccessibilitySettings(DEFAULT_APP_SETTINGS.accessibility);
+    const defaults = {
+      ...DEFAULT_APP_SETTINGS,
+      lastUpdated: Date.now(),
+    };
+    setSettingsState(defaults);
+    saveSettings(defaults);
+    applyAccessibilitySettings(defaults.accessibility);
   }, [applyAccessibilitySettings]);
 
   const resetSection = useCallback((section: keyof AppSettings) => {
-    const defaults: Record<string, unknown> = {
+    const sectionDefaults: Record<string, unknown> = {
       timer: DEFAULT_APP_SETTINGS.timer,
       notifications: DEFAULT_APP_SETTINGS.notifications,
       goals: DEFAULT_APP_SETTINGS.goals,
@@ -131,11 +176,25 @@ export function useSettings() {
       data: DEFAULT_APP_SETTINGS.data,
     };
     
-    if (defaults[section]) {
-      setSettings({ [section]: defaults[section] } as Partial<AppSettings>);
+    if (sectionDefaults[section]) {
+      setSettingsState(prev => {
+        const updated: AppSettings = {
+          ...prev,
+          [section]: sectionDefaults[section],
+          lastUpdated: Date.now(),
+        };
+        saveSettings(updated);
+        
+        if (section === 'accessibility') {
+          applyAccessibilitySettings(updated.accessibility);
+        }
+        
+        return updated;
+      });
     }
-  }, [setSettings]);
+  }, [applyAccessibilitySettings]);
 
+  // ✅ Memoize return value - dependencies are stable now
   return useMemo(() => ({
     settings,
     isLoaded,

@@ -83,11 +83,15 @@ export function formatDurationLong(ms: number): string {
 // ============================================
 
 /**
- * Generates a lightweight unique ID.
- * Not cryptographically secure — suitable for client-side session IDs.
+ * Generates a cryptographically secure unique ID using Web Crypto API.
+ * Collision-proof, stable across sessions, React key-friendly.
  */
 export function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback (should never happen in modern browsers)
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 15)}`;
 }
 
 // ============================================

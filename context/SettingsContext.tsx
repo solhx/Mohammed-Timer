@@ -1,9 +1,16 @@
-// context/SettingsContext.tsx - NEW FILE
+// context/SettingsContext.tsx - FIXED VERSION
 'use client';
 
-import { createContext, useContext, ReactNode, useMemo } from 'react';
+import { createContext, useContext, ReactNode } from 'react';
 import { useSettings } from '@/hooks/useSettings';
-import type { AppSettings, TimerSettings, NotificationSettings, GoalSettings, AccessibilitySettings, DataSettings } from '@/types/settings';
+import type { 
+  AppSettings, 
+  TimerSettings, 
+  NotificationSettings, 
+  GoalSettings, 
+  AccessibilitySettings, 
+  DataSettings 
+} from '@/types/settings';
 
 interface SettingsContextType {
   settings: AppSettings;
@@ -21,9 +28,8 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const settingsState = useSettings();
-  
-  const value = useMemo(() => settingsState, [settingsState]);
+  // ✅ useSettings already returns a memoized value
+  const value = useSettings();
 
   return (
     <SettingsContext.Provider value={value}>

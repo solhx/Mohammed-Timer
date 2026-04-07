@@ -1,4 +1,4 @@
-// components/settings/SettingsPage.tsx - COMPLETE REWRITE
+// components/settings/SettingsPage.tsx - FIXED VERSION
 'use client';
 
 import { memo, useState } from 'react';
@@ -31,9 +31,10 @@ interface SettingsPageProps {
   onDataImported: () => void;
 }
 
+// ✅ FIXED: Changed 'track' to 'timer' to match TabsContent value
 const tabs = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
-{ id: 'track', label: 'Track', icon: Timer },
+  { id: 'timer', label: 'Timer', icon: Timer },  // ✅ FIXED: was 'track'
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'goals', label: 'Goals', icon: Target },
   { id: 'accessibility', label: 'Accessibility', icon: Accessibility },
@@ -119,7 +120,7 @@ export const SettingsPage = memo(function SettingsPage({
   );
 });
 
-// About Section (keep existing implementation)
+// About Section
 const AboutSection = memo(function AboutSection() {
   return (
     <div className="space-y-6">

@@ -1,6 +1,6 @@
+// components/settings/PremiumThemeCustomizer.tsx - FIXED VERSION
 'use client';
 
-import { ColorPicker } from '@/components/ui/ColorPicker';
 import { memo, useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -22,6 +22,11 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { ColorPicker } from '@/components/ui/ColorPicker';
+// ✅ FIXED: Import shared UI components instead of defining locally
+import { Slider } from '@/components/ui/Slider';
+import { Select } from '@/components/ui/Select';
+import { Toggle } from '@/components/ui/Toggle';
 import { useThemeContext } from '@/context/ThemeContext';
 import { THEME_PRESETS, COLOR_PALETTES, DEFAULT_THEME } from '@/lib/theme-presets';
 import type { ThemeConfig, ThemePreset } from '@/types';
@@ -57,7 +62,7 @@ const Section = memo(function Section({
         )}
       >
         <div className="flex items-center gap-3">
-          <span className="text-[rgb(var(--color-primary-500))]">{icon}</span>
+          <span className="text-primary-500">{icon}</span>
           <span className="font-medium text-foreground">{title}</span>
         </div>
         <span className="text-muted-foreground">
@@ -101,15 +106,15 @@ const PresetCard = memo(function PresetCard({
   return (
     <button
       onClick={onSelect}
-      disabled={preset.isPremium}
+      // ✅ REMOVED: disabled={preset.isPremium}
       className={cn(
         'relative p-3 rounded-xl border-2 transition-all duration-200 text-left',
         'hover:scale-[1.02] focus:outline-none focus-visible:ring-2',
-        'focus-visible:ring-[rgb(var(--color-primary-500))]',
+        'focus-visible:ring-primary-500',
         isActive
-          ? 'border-[rgb(var(--color-primary-500))] bg-[rgb(var(--color-primary-500)/0.08)]'
-          : 'border-border hover:border-[rgb(var(--color-primary-400))]',
-        preset.isPremium && 'opacity-60 cursor-not-allowed'
+          ? 'border-primary-500 bg-primary-500/10'
+          : 'border-border hover:border-primary-400',
+        // ✅ REMOVED: preset.isPremium && 'opacity-60 cursor-not-allowed'
       )}
     >
       {/* Color dots preview */}
@@ -133,23 +138,23 @@ const PresetCard = memo(function PresetCard({
         <span className="text-sm font-semibold text-foreground">
           {preset.name}
         </span>
-        {preset.isPremium && <Lock size={11} className="text-amber-500" />}
+        {/* ✅ REMOVED: Premium lock icon */}
       </div>
       <p className="text-xs text-muted-foreground line-clamp-1">
         {preset.description}
       </p>
 
       {/* Active check */}
-      {isActive && !preset.isPremium && (
+      {isActive && (
         <div className="absolute top-2 right-2">
-          <Check size={15} className="text-[rgb(var(--color-primary-500))]" />
+          <Check size={15} className="text-primary-500" />
         </div>
       )}
 
-      {/* Premium badge */}
+      {/* ✅ CHANGED: Show "PRO" as a badge, not a lock */}
       {preset.isPremium && (
         <div className="absolute top-2 right-2">
-          <span className="premium-badge">
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-600 border border-amber-500/30">
             <Sparkles size={9} />
             PRO
           </span>
@@ -158,161 +163,6 @@ const PresetCard = memo(function PresetCard({
     </button>
   );
 });
-
-// ============================================
-// Slider
-// ============================================
-
-interface SliderProps {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step?: number;
-  onChange: (value: number) => void;
-  suffix?: string;
-}
-
-const Slider = memo(function Slider({
-  label,
-  value,
-  min,
-  max,
-  step = 1,
-  onChange,
-  suffix = '',
-}: SliderProps) {
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-foreground">{label}</label>
-        <span className="text-sm text-muted-foreground tabular-nums">
-          {value}
-          {suffix}
-        </span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className={cn(
-          'w-full h-2 rounded-lg appearance-none cursor-pointer',
-          'bg-muted',
-          '[&::-webkit-slider-thumb]:appearance-none',
-          '[&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4',
-          '[&::-webkit-slider-thumb]:rounded-full',
-          '[&::-webkit-slider-thumb]:bg-[rgb(var(--color-primary-500))]',
-          '[&::-webkit-slider-thumb]:shadow-md',
-          '[&::-webkit-slider-thumb]:cursor-pointer',
-          '[&::-webkit-slider-thumb]:transition-transform',
-          '[&::-webkit-slider-thumb]:hover:scale-110'
-        )}
-      />
-    </div>
-  );
-});
-
-// ============================================
-// Select
-// ============================================
-
-interface SelectOption {
-  value: string;
-  label: string;
-}
-
-interface SelectProps {
-  label: string;
-  value: string;
-  options: SelectOption[];
-  onChange: (value: string) => void;
-}
-
-const Select = memo(function Select({
-  label,
-  value,
-  options,
-  onChange,
-}: SelectProps) {
-  return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium text-foreground">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={cn(
-          'w-full px-3 py-2 rounded-lg text-sm',
-          'bg-background border border-input text-foreground',
-          'focus:outline-none focus:ring-2',
-          'focus:ring-[rgb(var(--color-primary-500))]',
-          'focus:border-transparent',
-          'transition-all duration-150',
-          'cursor-pointer'
-        )}
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-});
-
-// ============================================
-// Toggle
-// ============================================
-
-interface ToggleProps {
-  label: string;
-  description?: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}
-
-const Toggle = memo(function Toggle({
-  label,
-  description,
-  checked,
-  onChange,
-}: ToggleProps) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        {description && (
-          <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-        )}
-      </div>
-      <button
-        onClick={() => onChange(!checked)}
-        role="switch"
-        aria-checked={checked}
-        className={cn(
-          'relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200',
-          'focus:outline-none focus-visible:ring-2',
-          'focus-visible:ring-[rgb(var(--color-primary-500))]',
-          checked
-            ? 'bg-[rgb(var(--color-primary-500))]'
-            : 'bg-muted'
-        )}
-      >
-        <span
-          className={cn(
-            'absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-sm',
-            'transition-transform duration-200',
-            checked && 'translate-x-5'
-          )}
-        />
-      </button>
-    </div>
-  );
-});
-
 // ============================================
 // Component Color Row
 // ============================================
@@ -354,9 +204,9 @@ const ComponentColorRow = memo(function ComponentColorRow({
                 'w-8 h-8 rounded-full border-2 transition-all duration-150',
                 'hover:scale-110 active:scale-95 focus:outline-none',
                 'focus-visible:ring-2 focus-visible:ring-offset-1',
-                'focus-visible:ring-[rgb(var(--color-primary-500))]',
+                'focus-visible:ring-primary-500',
                 isSelected
-                  ? 'border-[rgb(var(--color-primary-500))] scale-110'
+                  ? 'border-primary-500 scale-110'
                   : 'border-border'
               )}
               style={{ backgroundColor: color.value }}
@@ -382,7 +232,7 @@ const ComponentColorRow = memo(function ComponentColorRow({
             aria-label={`Custom color for ${label}`}
             className={cn(
               'w-8 h-8 rounded-full cursor-pointer border-2 border-border',
-              'hover:border-[rgb(var(--color-primary-400))]',
+              'hover:border-primary-400',
               'transition-all duration-150',
               '[&::-webkit-color-swatch-wrapper]:p-0',
               '[&::-webkit-color-swatch]:rounded-full',
@@ -419,20 +269,19 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
     { id: 'system', label: 'System', icon: Monitor },
   ] as const;
 
-  // ── Handlers ──────────────────────────────────────────────────
-
+  // Handlers
   const handlePresetSelect = useCallback(
-    (preset: ThemePreset) => {
-      if (preset.isPremium) return;
-      setFullTheme({
-        ...DEFAULT_THEME,
-        ...preset.config,
-        id:   preset.id,
-        name: preset.name,
-      } as ThemeConfig);
-    },
-    [setFullTheme]
-  );
+  (preset: ThemePreset) => {
+  
+    setFullTheme({
+      ...DEFAULT_THEME,
+      ...preset.config,
+      id:   preset.id,
+      name: preset.name,
+    } as ThemeConfig);
+  },
+  [setFullTheme]
+);
 
   const handleModeChange = useCallback(
     (mode: 'light' | 'dark' | 'system') => { setTheme({ mode }); },
@@ -532,8 +381,7 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
     [setTheme, theme.componentColors]
   );
 
-  // ── Component color fields config ─────────────────────────────
-
+  // Component color fields config
   const componentColorFields: Array<{
     key: keyof ThemeConfig['componentColors'];
     label: string;
@@ -571,16 +419,32 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
     },
   ];
 
-  // ── Render ────────────────────────────────────────────────────
+  // Border radius options for Select
+  const borderRadiusOptions = [
+    { value: 'none', label: 'None' },
+    { value: 'sm', label: 'Small' },
+    { value: 'md', label: 'Medium' },
+    { value: 'lg', label: 'Large' },
+    { value: 'xl', label: 'Extra Large' },
+    { value: '2xl', label: '2X Large' },
+    { value: 'full', label: 'Full (Pill)' },
+  ];
 
+  const animationSpeedOptions = [
+    { value: 'slow', label: 'Slow' },
+    { value: 'normal', label: 'Normal' },
+    { value: 'fast', label: 'Fast' },
+  ];
+
+  // Render
   return (
     <div className="space-y-6">
 
-      {/* ── Page header ───────────────────────── */}
+      {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Palette className="text-[rgb(var(--color-primary-500))]" />
+            <Palette className="text-primary-500" />
             Theme Customizer
           </h2>
           <p className="text-muted-foreground mt-1">
@@ -593,11 +457,11 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
         </Button>
       </div>
 
-      {/* ── Theme Presets ─────────────────────── */}
+      {/* Theme Presets */}
       <Card variant="bordered" padding="md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles size={18} className="text-[rgb(var(--color-primary-500))]" />
+            <Sparkles size={18} className="text-primary-500" />
             Theme Presets
           </CardTitle>
         </CardHeader>
@@ -615,11 +479,11 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
         </CardContent>
       </Card>
 
-      {/* ── Mode selector ─────────────────────── */}
+      {/* Mode selector */}
       <Card variant="bordered" padding="md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sun size={18} className="text-[rgb(var(--color-primary-500))]" />
+            <Sun size={18} className="text-primary-500" />
             Appearance Mode
           </CardTitle>
         </CardHeader>
@@ -636,10 +500,10 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
                     'border-2 font-medium text-sm transition-all duration-200',
                     'hover:scale-[1.02] active:scale-[0.98]',
                     'focus:outline-none focus-visible:ring-2',
-                    'focus-visible:ring-[rgb(var(--color-primary-500))]',
+                    'focus-visible:ring-primary-500',
                     isActive
-                      ? 'border-[rgb(var(--color-primary-500))] bg-[rgb(var(--color-primary-500)/0.08)] text-[rgb(var(--color-primary-500))]'
-                      : 'border-border hover:border-[rgb(var(--color-primary-300))] text-foreground'
+                      ? 'border-primary-500 bg-primary-500/10 text-primary-500'
+                      : 'border-border hover:border-primary-300 text-foreground'
                   )}
                 >
                   <Icon size={17} />
@@ -651,12 +515,11 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
         </CardContent>
       </Card>
 
-      {/* ── Collapsible sections ──────────────── */}
+      {/* Collapsible sections */}
       <div className="space-y-3">
 
-        {/* ── Colors ──────────────── */}
+        {/* Colors */}
         <Section title="Colors" icon={<Palette size={18} />} defaultOpen>
-
           <ColorPicker
             label="Primary Color"
             value={theme.primary}
@@ -682,18 +545,15 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
               Live Preview
             </p>
 
-            {/* Inline style buttons */}
             <div className="flex items-center gap-3 flex-wrap mb-3">
               <button
-                className="px-4 py-2 rounded-lg text-white text-sm font-medium
-                           transition-transform hover:scale-105"
+                className="px-4 py-2 rounded-lg text-white text-sm font-medium transition-transform hover:scale-105"
                 style={{ backgroundColor: theme.primary }}
               >
                 Primary
               </button>
               <button
-                className="px-4 py-2 rounded-lg text-white text-sm font-medium
-                           transition-transform hover:scale-105"
+                className="px-4 py-2 rounded-lg text-white text-sm font-medium transition-transform hover:scale-105"
                 style={{ backgroundColor: theme.accent }}
               >
                 Accent
@@ -702,82 +562,21 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
                 className="flex-1 h-10 rounded-lg border min-w-[80px]"
                 style={{
                   backgroundColor: theme.surfaces.background,
-                  borderColor:     theme.surfaces.border,
+                  borderColor: theme.surfaces.border,
                 }}
               />
             </div>
 
-            {/* Tailwind class buttons */}
-            <div className="flex items-center gap-3 flex-wrap mb-3">
-              <button
-                className="px-4 py-2 rounded-lg text-white text-sm font-medium
-                           bg-primary-500 hover:bg-primary-600
-                           transition-transform hover:scale-105"
-              >
-                Primary (Class)
-              </button>
-              <button
-                className="px-4 py-2 rounded-lg text-white text-sm font-medium
-                           bg-accent-500 hover:bg-accent-600
-                           transition-transform hover:scale-105"
-              >
-                Accent (Class)
-              </button>
-              <span className="text-primary-500 font-medium text-sm">
-                Primary Text
-              </span>
-              <span className="text-accent-500 font-medium text-sm">
-                Accent Text
-              </span>
-            </div>
-
-            {/* Gradient bar */}
             <div
               className="h-10 rounded-lg mb-3 transition-all duration-300"
               style={{
                 background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.accent} 100%)`,
               }}
             />
-
-            {/* Primary shades row */}
-            <div className="mb-3">
-              <p className="text-xs text-muted-foreground mb-1.5">
-                Primary Shades
-              </p>
-              <div className="flex gap-0.5 h-7 rounded-lg overflow-hidden">
-                {[50, 100, 200, 300, 400, 500, 600, 700, 800, 900].map(
-                  (shade) => (
-                    <div
-                      key={shade}
-                      className={`flex-1 bg-primary-${shade}`}
-                      title={`${shade}`}
-                    />
-                  )
-                )}
-              </div>
-            </div>
-
-            {/* Accent shades row */}
-            <div>
-              <p className="text-xs text-muted-foreground mb-1.5">
-                Accent Shades
-              </p>
-              <div className="flex gap-0.5 h-7 rounded-lg overflow-hidden">
-                {[50, 100, 200, 300, 400, 500, 600, 700, 800, 900].map(
-                  (shade) => (
-                    <div
-                      key={shade}
-                      className={`flex-1 bg-accent-${shade}`}
-                      title={`${shade}`}
-                    />
-                  )
-                )}
-              </div>
-            </div>
           </div>
         </Section>
 
-        {/* ── Component Colors (NEW) ──────────── */}
+        {/* Component Colors */}
         <Section
           title="Component Colors"
           icon={<Layout size={18} />}
@@ -785,7 +584,6 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
         >
           <p className="text-xs text-muted-foreground -mt-1">
             Override the background color of individual UI components.
-            Changes apply instantly.
           </p>
 
           <div className="space-y-6 divide-y divide-border">
@@ -804,27 +602,25 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
             ))}
           </div>
 
-          {/* Reset component colors */}
           <button
             onClick={() =>
               setTheme({ componentColors: DEFAULT_THEME.componentColors })
             }
-            className="flex items-center gap-2 text-sm text-muted-foreground
-                       hover:text-foreground transition-colors mt-2"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mt-2"
           >
             <RotateCcw size={13} />
             Reset component colors to default
           </button>
         </Section>
 
-        {/* ── Background ──────────── */}
+        {/* Background */}
         <Section title="Background" icon={<Layers size={18} />}>
           <Select
             label="Background Type"
             value={theme.background.type}
             options={[
-              { value: 'solid',    label: 'Solid Color' },
-              { value: 'gradient', label: 'Gradient'    },
+              { value: 'solid', label: 'Solid Color' },
+              { value: 'gradient', label: 'Gradient' },
             ]}
             onChange={(v) =>
               handleBackgroundTypeChange(v as 'solid' | 'gradient')
@@ -839,7 +635,7 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
                 options={[
                   { value: 'linear', label: 'Linear' },
                   { value: 'radial', label: 'Radial' },
-                  { value: 'conic',  label: 'Conic'  },
+                  { value: 'conic', label: 'Conic' },
                 ]}
                 onChange={(v) =>
                   handleGradientChange({
@@ -893,12 +689,7 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
                         colors[0] = e.target.value;
                         handleGradientChange({ colors });
                       }}
-                      className="w-full h-10 rounded-lg cursor-pointer
-                                 border border-border transition-all
-                                 hover:border-[rgb(var(--color-primary-400))]
-                                 [&::-webkit-color-swatch-wrapper]:p-0
-                                 [&::-webkit-color-swatch]:rounded-md
-                                 [&::-webkit-color-swatch]:border-none"
+                      className="w-full h-10 rounded-lg cursor-pointer border border-border transition-all hover:border-primary-400 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-md [&::-webkit-color-swatch]:border-none"
                     />
                   </div>
                   <div className="flex-1 space-y-1">
@@ -920,42 +711,10 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
                         colors[1] = e.target.value;
                         handleGradientChange({ colors });
                       }}
-                      className="w-full h-10 rounded-lg cursor-pointer
-                                 border border-border transition-all
-                                 hover:border-[rgb(var(--color-primary-400))]
-                                 [&::-webkit-color-swatch-wrapper]:p-0
-                                 [&::-webkit-color-swatch]:rounded-md
-                                 [&::-webkit-color-swatch]:border-none"
+                      className="w-full h-10 rounded-lg cursor-pointer border border-border transition-all hover:border-primary-400 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-md [&::-webkit-color-swatch]:border-none"
                     />
                   </div>
                 </div>
-              </div>
-
-              {/* Gradient preview */}
-              <div>
-                <label className="text-xs text-muted-foreground mb-2 block">
-                  Preview
-                </label>
-                <div
-                  className="h-20 rounded-xl border border-border
-                             transition-all duration-300"
-                  style={{
-                    background: (() => {
-                      const c =
-                        theme.background.gradient.colors?.join(', ') ??
-                        `${theme.primary}, ${theme.accent}`;
-                      const t = theme.background.gradient.type;
-                      const a = theme.background.gradient.angle ?? 135;
-                      if (t === 'radial')
-                        return `radial-gradient(circle at center, ${c})`;
-                      if (t === 'conic')
-                        return `conic-gradient(from ${a}deg, ${c})`;
-                      return `linear-gradient(${a}deg, ${c})`;
-                    })(),
-                    opacity:
-                      (theme.background.gradient.opacity ?? 100) / 100,
-                  }}
-                />
               </div>
 
               <Toggle
@@ -971,9 +730,9 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
             label="Background Pattern"
             value={theme.background.pattern ?? 'none'}
             options={[
-              { value: 'none',  label: 'None'  },
-              { value: 'dots',  label: 'Dots'  },
-              { value: 'grid',  label: 'Grid'  },
+              { value: 'none', label: 'None' },
+              { value: 'dots', label: 'Dots' },
+              { value: 'grid', label: 'Grid' },
               { value: 'noise', label: 'Noise' },
             ]}
             onChange={(v) =>
@@ -986,24 +745,23 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
             }
           />
 
-          {theme.background.pattern &&
-            theme.background.pattern !== 'none' && (
-              <Slider
-                label="Pattern Opacity"
-                value={theme.background.patternOpacity}
-                min={1}
-                max={20}
-                onChange={(v) =>
-                  setTheme({
-                    background: { ...theme.background, patternOpacity: v },
-                  })
-                }
-                suffix="%"
-              />
-            )}
+          {theme.background.pattern && theme.background.pattern !== 'none' && (
+            <Slider
+              label="Pattern Opacity"
+              value={theme.background.patternOpacity}
+              min={1}
+              max={20}
+              onChange={(v) =>
+                setTheme({
+                  background: { ...theme.background, patternOpacity: v },
+                })
+              }
+              suffix="%"
+            />
+          )}
         </Section>
 
-        {/* ── Effects ─────────────── */}
+        {/* Effects */}
         <Section title="Effects" icon={<Zap size={18} />}>
           <Slider
             label="Glass Blur"
@@ -1032,29 +790,17 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
           <Select
             label="Border Radius"
             value={theme.effects.borderRadius}
-            options={[
-              { value: 'none', label: 'None'       },
-              { value: 'sm',   label: 'Small'      },
-              { value: 'md',   label: 'Medium'     },
-              { value: 'lg',   label: 'Large'      },
-              { value: 'xl',   label: 'Extra Large'},
-              { value: '2xl',  label: '2X Large'   },
-              { value: 'full', label: 'Full (Pill)'},
-            ]}
+            options={borderRadiusOptions}
             onChange={(v) =>
-              handleEffectsChange({ borderRadius: v as any })
+              handleEffectsChange({ borderRadius: v as ThemeConfig['effects']['borderRadius'] })
             }
           />
           <Select
             label="Animation Speed"
             value={theme.effects.animationSpeed}
-            options={[
-              { value: 'slow',   label: 'Slow'   },
-              { value: 'normal', label: 'Normal' },
-              { value: 'fast',   label: 'Fast'   },
-            ]}
+            options={animationSpeedOptions}
             onChange={(v) =>
-              handleEffectsChange({ animationSpeed: v as any })
+              handleEffectsChange({ animationSpeed: v as ThemeConfig['effects']['animationSpeed'] })
             }
           />
           <Toggle
@@ -1065,45 +811,45 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
           />
         </Section>
 
-        {/* ── Cards ───────────────── */}
+        {/* Cards */}
         <Section title="Cards" icon={<Layout size={18} />}>
           <Select
             label="Card Style"
             value={theme.cards.style}
             options={[
-              { value: 'default',  label: 'Default'  },
-              { value: 'glass',    label: 'Glass'    },
+              { value: 'default', label: 'Default' },
+              { value: 'glass', label: 'Glass' },
               { value: 'bordered', label: 'Bordered' },
               { value: 'elevated', label: 'Elevated' },
               { value: 'gradient', label: 'Gradient' },
             ]}
-            onChange={(v) => handleCardsChange({ style: v as any })}
+            onChange={(v) => handleCardsChange({ style: v as ThemeConfig['cards']['style'] })}
           />
           <Select
             label="Hover Effect"
             value={theme.cards.hoverEffect}
             options={[
-              { value: 'none',   label: 'None'             },
-              { value: 'lift',   label: 'Lift'             },
-              { value: 'glow',   label: 'Glow'             },
-              { value: 'scale',  label: 'Scale'            },
+              { value: 'none', label: 'None' },
+              { value: 'lift', label: 'Lift' },
+              { value: 'glow', label: 'Glow' },
+              { value: 'scale', label: 'Scale' },
               { value: 'border', label: 'Border Highlight' },
             ]}
-            onChange={(v) => handleCardsChange({ hoverEffect: v as any })}
+            onChange={(v) => handleCardsChange({ hoverEffect: v as ThemeConfig['cards']['hoverEffect'] })}
           />
         </Section>
 
-        {/* ── Buttons ─────────────── */}
+        {/* Buttons */}
         <Section title="Buttons" icon={<Layout size={18} />}>
           <Select
             label="Button Style"
             value={theme.buttons.style}
             options={[
               { value: 'default', label: 'Default (Rounded)' },
-              { value: 'pill',    label: 'Pill'              },
-              { value: 'square',  label: 'Square'            },
+              { value: 'pill', label: 'Pill' },
+              { value: 'square', label: 'Square' },
             ]}
-            onChange={(v) => handleButtonsChange({ style: v as any })}
+            onChange={(v) => handleButtonsChange({ style: v as ThemeConfig['buttons']['style'] })}
           />
           <Toggle
             label="Primary Gradient"
@@ -1115,37 +861,37 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
             label="Hover Effect"
             value={theme.buttons.hoverEffect}
             options={[
-              { value: 'none',  label: 'None'  },
-              { value: 'glow',  label: 'Glow'  },
+              { value: 'none', label: 'None' },
+              { value: 'glow', label: 'Glow' },
               { value: 'scale', label: 'Scale' },
               { value: 'shine', label: 'Shine' },
             ]}
-            onChange={(v) => handleButtonsChange({ hoverEffect: v as any })}
+            onChange={(v) => handleButtonsChange({ hoverEffect: v as ThemeConfig['buttons']['hoverEffect'] })}
           />
         </Section>
 
-        {/* ── Timer ───────────────── */}
+        {/* Timer */}
         <Section title="Timer Display" icon={<Timer size={18} />}>
           <Select
             label="Display Style"
             value={theme.timer.displayStyle}
             options={[
-              { value: 'default',  label: 'Default'       },
-              { value: 'minimal',  label: 'Minimal'       },
-              { value: 'neon',     label: 'Neon Glow'     },
+              { value: 'default', label: 'Default' },
+              { value: 'minimal', label: 'Minimal' },
+              { value: 'neon', label: 'Neon Glow' },
               { value: 'gradient', label: 'Gradient Text' },
             ]}
-            onChange={(v) => handleTimerChange({ displayStyle: v as any })}
+            onChange={(v) => handleTimerChange({ displayStyle: v as ThemeConfig['timer']['displayStyle'] })}
           />
           <Select
             label="Font Family"
             value={theme.timer.fontFamily}
             options={[
-              { value: 'mono',    label: 'Monospace' },
-              { value: 'sans',    label: 'Sans-serif'},
-              { value: 'digital', label: 'Digital'   },
+              { value: 'mono', label: 'Monospace' },
+              { value: 'sans', label: 'Sans-serif' },
+              { value: 'digital', label: 'Digital' },
             ]}
-            onChange={(v) => handleTimerChange({ fontFamily: v as any })}
+            onChange={(v) => handleTimerChange({ fontFamily: v as ThemeConfig['timer']['fontFamily'] })}
           />
           <Toggle
             label="Show Milliseconds"
@@ -1165,18 +911,18 @@ export const PremiumThemeCustomizer = memo(function PremiumThemeCustomizer() {
           />
         </Section>
 
-        {/* ── Charts ──────────────── */}
+        {/* Charts */}
         <Section title="Charts" icon={<BarChart3 size={18} />}>
           <Select
             label="Chart Style"
             value={theme.charts.style}
             options={[
-              { value: 'default',  label: 'Default'       },
+              { value: 'default', label: 'Default' },
               { value: 'gradient', label: 'Gradient Fill' },
-              { value: 'neon',     label: 'Neon Glow'     },
+              { value: 'neon', label: 'Neon Glow' },
             ]}
             onChange={(v) =>
-              setTheme({ charts: { ...theme.charts, style: v as any } })
+              setTheme({ charts: { ...theme.charts, style: v as ThemeConfig['charts']['style'] } })
             }
           />
           <Slider

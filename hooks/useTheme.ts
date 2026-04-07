@@ -1,11 +1,12 @@
-// hooks/useTheme.ts - COMPLETE FIXED VERSION
+// hooks/useTheme.ts - FIXED VERSION (removed duplicate deepMerge)
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { ThemeConfig, ThemeMode } from '@/types';
 import { DEFAULT_THEME } from '@/lib/theme-presets';
 import { saveThemeConfig, getThemeConfig } from '@/lib/storage';
-import { hexToRgb, rgbToSpacedString, hexToSpacedRgb } from '@/lib/utils';
+// ✅ FIXED: Import from utils instead of defining locally
+import { deepMerge, hexToRgb, rgbToSpacedString, hexToSpacedRgb } from '@/lib/utils';
 
 const STORAGE_KEY = 'timeflow_theme';
 
@@ -102,12 +103,10 @@ function generateColorShades(hex: string): Record<string, string> {
 
 // ============================================
 // Secondary Color Shades Generator
-// Uses neutral slate palette that adapts to mode
 // ============================================
 
 function generateSecondaryShades(isDark: boolean): Record<string, string> {
   if (isDark) {
-    // Dark mode: lighter shades have higher numbers
     return {
       '50': '2 6 23',
       '100': '15 23 42',
@@ -122,7 +121,6 @@ function generateSecondaryShades(isDark: boolean): Record<string, string> {
       '950': '248 250 252',
     };
   }
-  // Light mode: standard slate palette
   return {
     '50': '248 250 252',
     '100': '241 245 249',
@@ -136,37 +134,6 @@ function generateSecondaryShades(isDark: boolean): Record<string, string> {
     '900': '15 23 42',
     '950': '2 6 23',
   };
-}
-
-// ============================================
-// Deep Merge
-// ============================================
-
-function deepMerge<T extends Record<string, any>>(
-  target: T,
-  source: Partial<T>
-): T {
-  const result = { ...target };
-  for (const key in source) {
-    const sv = source[key];
-    const tv = target[key];
-    if (sv === undefined || sv === null) continue;
-    if (
-      typeof sv === 'object' &&
-      !Array.isArray(sv) &&
-      typeof tv === 'object' &&
-      tv !== null &&
-      !Array.isArray(tv)
-    ) {
-      result[key] = deepMerge(
-        tv as Record<string, any>,
-        sv as Record<string, any>
-      ) as T[typeof key];
-    } else {
-      result[key] = sv as T[typeof key];
-    }
-  }
-  return result;
 }
 
 // ============================================
@@ -198,7 +165,7 @@ function applyThemeToDOM(theme: ThemeConfig): void {
 
   const root = document.documentElement;
 
-  // ── Mode ────────────────────────────────────────────────────
+  // Mode
   const isDark =
     theme.mode === 'dark' ||
     (theme.mode === 'system' &&
@@ -207,7 +174,7 @@ function applyThemeToDOM(theme: ThemeConfig): void {
   root.classList.remove('light', 'dark');
   root.classList.add(isDark ? 'dark' : 'light');
 
-  // ── Surface defaults ────────────────────────────────────────
+  // Surface defaults
   const surfaceDefaults: Record<SurfaceKey, string> = isDark
     ? {
         background: '15 23 42',
@@ -236,7 +203,7 @@ function applyThemeToDOM(theme: ThemeConfig): void {
         ring: '99 102 241',
       };
 
-  // ── Surface colors ──────────────────────────────────────────
+  // Surface colors
   const surfaces = isDark ? theme.surfacesDark : theme.surfaces;
 
   (Object.keys(cssVarName) as SurfaceKey[]).forEach((key) => {
@@ -249,7 +216,7 @@ function applyThemeToDOM(theme: ThemeConfig): void {
     );
   });
 
-  // ── Primary shades ──────────────────────────────────────────
+  // Primary shades
   const primaryShades = generateColorShades(theme.primary);
   Object.entries(primaryShades).forEach(([shade, rgb]) => {
     root.style.setProperty(`--color-primary-${shade}`, rgb);
@@ -257,7 +224,7 @@ function applyThemeToDOM(theme: ThemeConfig): void {
   root.style.setProperty('--color-primary-rgb', hexToSpacedRgb(theme.primary));
   root.style.setProperty('--color-primary-foreground', '255 255 255');
 
-  // ── SECONDARY shades ────────────────────────────────────────
+  // Secondary shades
   const secondaryShades = generateSecondaryShades(isDark);
   Object.entries(secondaryShades).forEach(([shade, rgb]) => {
     root.style.setProperty(`--color-secondary-${shade}`, rgb);
@@ -268,7 +235,7 @@ function applyThemeToDOM(theme: ThemeConfig): void {
     isDark ? '15 23 42' : '255 255 255'
   );
 
-  // ── Accent shades ───────────────────────────────────────────
+  // Accent shades
   const accentShades = generateColorShades(theme.accent);
   Object.entries(accentShades).forEach(([shade, rgb]) => {
     root.style.setProperty(`--color-accent-${shade}`, rgb);
@@ -277,7 +244,7 @@ function applyThemeToDOM(theme: ThemeConfig): void {
   root.style.setProperty('--color-accent-rgb', hexToSpacedRgb(theme.accent));
   root.style.setProperty('--color-accent-foreground', '255 255 255');
 
-  // ── Semantic colors ─────────────────────────────────────────
+  // Semantic colors
   const sem = theme.semantic ?? {};
   const semanticMap: Array<[string, string | undefined, string]> = [
     ['--color-destructive', sem.destructive, '239 68 68'],
@@ -293,43 +260,44 @@ function applyThemeToDOM(theme: ThemeConfig): void {
     root.style.setProperty(varName, hexToSpacedRgb(value ?? '', fallback));
   });
 
-  // ── Component background colors ─────────────────────────────
+  // Component background colors
   const cc = theme.componentColors ?? DEFAULT_THEME.componentColors;
 
-const componentDefaults: Record<keyof typeof cc, string> = isDark
-  ? {
-      sidebarBg: '15 23 42',
-      headerBg: '15 23 42',
-      timerBg: '30 41 59',
-      contentBg: '15 23 42',
-      dashboardCardBg: '30 41 59',
-      navBg: '15 23 42',
-    }
-  : {
-      sidebarBg: '255 255 255',
-      headerBg: '255 255 255',
-      timerBg: '255 255 255',
-      contentBg: '248 250 252',
-      dashboardCardBg: '255 255 255',
-      navBg: '255 255 255',
-    };
+  const componentDefaults: Record<keyof typeof cc, string> = isDark
+    ? {
+        sidebarBg: '15 23 42',
+        headerBg: '15 23 42',
+        timerBg: '30 41 59',
+        contentBg: '15 23 42',
+        dashboardCardBg: '30 41 59',
+        navBg: '15 23 42',
+      }
+    : {
+        sidebarBg: '255 255 255',
+        headerBg: '255 255 255',
+        timerBg: '255 255 255',
+        contentBg: '248 250 252',
+        dashboardCardBg: '255 255 255',
+        navBg: '255 255 255',
+      };
 
-const componentVarMap: Record<keyof typeof cc, string> = {
-  sidebarBg: '--color-sidebar-bg',
-  headerBg: '--color-header-bg',
-  timerBg: '--color-timer-bg',
-  contentBg: '--color-content-bg',
-  dashboardCardBg: '--color-dashboard-card-bg',
-  navBg: '--color-nav-bg',
-};
+  const componentVarMap: Record<keyof typeof cc, string> = {
+    sidebarBg: '--color-sidebar-bg',
+    headerBg: '--color-header-bg',
+    timerBg: '--color-timer-bg',
+    contentBg: '--color-content-bg',
+    dashboardCardBg: '--color-dashboard-card-bg',
+    navBg: '--color-nav-bg',
+  };
 
-(Object.keys(componentVarMap) as Array<keyof typeof cc>).forEach((key) => {
-  root.style.setProperty(
-    componentVarMap[key],
-    hexToSpacedRgb(cc[key] ?? '', componentDefaults[key])
-  );
-});
-  // ── Effects ─────────────────────────────────────────────────
+  (Object.keys(componentVarMap) as Array<keyof typeof cc>).forEach((key) => {
+    root.style.setProperty(
+      componentVarMap[key],
+      hexToSpacedRgb(cc[key] ?? '', componentDefaults[key])
+    );
+  });
+
+  // Effects
   const fx = theme.effects ?? {};
   root.style.setProperty('--blur-amount', `${fx.blur ?? 12}px`);
   root.style.setProperty(
@@ -369,7 +337,7 @@ const componentVarMap: Record<keyof typeof cc, string> = {
     ? root.classList.add('reduce-motion')
     : root.classList.remove('reduce-motion');
 
-  // ── Background ──────────────────────────────────────────────
+  // Background
   const premiumBg = document.querySelector('.premium-bg');
   if (premiumBg) {
     premiumBg.classList.remove(
@@ -416,7 +384,7 @@ const componentVarMap: Record<keyof typeof cc, string> = {
     root.style.setProperty('--bg-gradient-opacity', '0');
   }
 
-  // ── Pattern ─────────────────────────────────────────────────
+  // Pattern
   const pattern = bg.pattern;
   root.style.setProperty(
     '--bg-pattern-opacity',
@@ -426,7 +394,7 @@ const componentVarMap: Record<keyof typeof cc, string> = {
     premiumBg.classList.add(`bg-pattern-${pattern}`);
   }
 
-  // ── Data attributes ─────────────────────────────────────────
+  // Data attributes
   root.style.setProperty(
     '--timer-glow',
     hexToSpacedRgb(theme.timer?.glowColor || theme.primary)
@@ -448,7 +416,7 @@ const componentVarMap: Record<keyof typeof cc, string> = {
   );
   root.setAttribute('data-chart-style', theme.charts?.style ?? 'default');
 
-  // ── Chart colors ────────────────────────────────────────────
+  // Chart colors
   root.style.setProperty(
     '--chart-grid-opacity',
     String((theme.charts?.gridOpacity ?? 10) / 100)
@@ -485,19 +453,19 @@ export function useTheme() {
   const [isMounted, setIsMounted] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Mount ──────────────────────────────────────────────────
+  // Mount
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // ── Load & apply on mount ──────────────────────────────────
+  // Load & apply on mount
   useEffect(() => {
     if (!isMounted) return;
     let cancelled = false;
 
     const load = async () => {
       try {
-        // Fast sync read — prevents flash of unstyled content
+        // Fast sync read
         const syncTheme = getStoredThemeSync();
         if (!cancelled) {
           setThemeState(syncTheme);
@@ -524,7 +492,7 @@ export function useTheme() {
     };
   }, [isMounted]);
 
-  // ── System preference listener ─────────────────────────────
+  // System preference listener
   useEffect(() => {
     if (!isMounted || theme.mode !== 'system') return;
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -533,29 +501,27 @@ export function useTheme() {
     return () => mq.removeEventListener('change', handler);
   }, [theme, isMounted]);
 
-  // ── Cleanup save timeout ───────────────────────────────────
+  // Cleanup save timeout
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
   }, []);
 
-  // ── Persist ────────────────────────────────────────────────
+  // Persist
   const saveToStorage = useCallback((config: ThemeConfig) => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    // Immediate localStorage write for fast re-reads
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
     } catch (e) {
       console.error('localStorage write failed:', e);
     }
-    // Debounced IndexedDB write
     saveTimeoutRef.current = setTimeout(() => {
       saveThemeConfig(config).catch(console.error);
     }, 500);
   }, []);
 
-  // ── Public API ─────────────────────────────────────────────
+  // Public API
   const setTheme = useCallback(
     (updates: Partial<ThemeConfig>) => {
       setThemeState((prev) => {
